@@ -10,12 +10,10 @@ import sys
 from google.cloud import speech
 from google.cloud.speech import enums
 from google.cloud.speech import types
-
 from aiohttp_requests import requests
+from . import ARI_URL, ARI_USERNAME, ARI_PASSWORD, APPLICATION
 
 logging.basicConfig(level=logging.DEBUG)
-
-from . import ARI_URL, ARI_USERNAME, ARI_PASSWORD, APPLICATION
 
 SERVER_HOST = '127.0.0.1'
 SERVER_PORT = 12222
