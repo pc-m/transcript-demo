@@ -7,6 +7,7 @@ import aiohttp
 import logging
 import uuid
 import sys
+import os
 from google.cloud import speech
 from google.cloud.speech import enums
 from google.cloud.speech import types
@@ -20,6 +21,16 @@ SERVER_PORT = 12222
 EXTERNAL_MEDIA_URL = '/'.join([ARI_URL, 'ari', 'channels', 'externalMedia'])
 CHANNEL_ID = str(uuid.uuid4())
 GOOGLE_SPEECH_CREDS_FILENAME = '/root/google_speech_creds.json'
+TPL = '''\
+<head>
+    <meta http-equiv="refresh" content="1">
+</head>
+<body>
+{}
+</body>
+'''
+OUTPUT_DIRNAME = '/tmp/translation'
+OUTPUT_FILENAME = os.path.join(OUTPUT_DIRNAME, 'index.html')
 
 
 class ExternalMediaServer:
@@ -82,6 +93,8 @@ class ExternalMediaServer:
                 output += '{}\n'.format(result.alternatives[0].transcript)
 
         logging.info('%s', output)
+        with open('/tmp/translation/index.html', 'w') as f:
+            f.write(TPL.format(output.replace('\n', '</p>')))
 
 
 async def create_external_media():
@@ -133,5 +146,12 @@ async def start(host, port):
 
 def main():
     logging.debug('Starting %s', sys.argv[0])
+    try:
+        os.mkdir(OUTPUT_DIRNAME)
+    except FileExistsError:
+        pass
+
+    with open(OUTPUT_FILENAME, 'w') as f:
+        f.write(TPL.format('Waiting for the transcription to start...'))
     asyncio.run(start(SERVER_HOST, SERVER_PORT))
     logging.debug('bye')
