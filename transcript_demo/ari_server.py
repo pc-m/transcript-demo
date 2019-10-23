@@ -31,70 +31,65 @@ TPL = '''\
 '''
 OUTPUT_DIRNAME = '/tmp/translation'
 OUTPUT_FILENAME = os.path.join(OUTPUT_DIRNAME, 'index.html')
+SPEECH_CLIENT = speech.SpeechClient.from_service_account_file(
+    filename=GOOGLE_SPEECH_CREDS_FILENAME,
+)
+STREAMING_CONFIG = types.StreamingRecognitionConfig(
+    config=types.RecognitionConfig(
+        encoding=enums.RecognitionConfig.AudioEncoding.MULAW,
+        sample_rate_hertz=8000,
+        language_code='en-US',
+    ),
+)
 
 
 class ExternalMediaServer:
-    _speech_client = speech.SpeechClient.from_service_account_file(
-        filename=GOOGLE_SPEECH_CREDS_FILENAME,
-    )
-    _streaming_config = types.StreamingRecognitionConfig(
-        config=types.RecognitionConfig(
-            encoding=enums.RecognitionConfig.AudioEncoding.MULAW,
-            sample_rate_hertz=8000,
-            language_code='en-US',
-        ),
-    )
+    def __init__(self, queue):
+        self._queue = queue
 
     def connection_made(self, transport):
-        self.loop = asyncio.get_running_loop()
         self.transport = transport
-        self._buffer = b''
-        self._file = tempfile.NamedTemporaryFile()
-        logging.debug('%s', self._file.name)
-
-    def connection_lost(self, exc):
-        self._file.close()
 
     def datagram_received(self, data, addr):
-        self._buffer += data[12:]
-        if len(self._buffer) > 16 * 1024:
-            self._write()
-            self._flush()
+        self._queue.put_nowait(data[12:])
 
-    def _write(self):
-        self._file.write(self._buffer)
-        self._buffer = b''
 
-    def _flush(self):
-        self._file.seek(0)
-        chunk = self._file.read()
+async def fetch_transcription(buf):
+    request = types.StreamingRecognizeRequest(audio_content=buf)
+    responses = list(SPEECH_CLIENT.streaming_recognize(STREAMING_CONFIG, [request]))
+    logging.debug('%s', responses)
 
-        logging.debug(
-            "_send_buffer: chunk len: %s",
-            len(chunk) if chunk is not None else None,
-        )
-        if not chunk:
-            return
+    output = '\n'
+    for response in responses:
+        results = list(response.results)
+        logging.debug("results: %d" % len(results))
+        for result in results:
+            if not result.is_final:
+                continue
+            output += '{}\n'.format(result.alternatives[0].transcript)
 
-        request = types.StreamingRecognizeRequest(audio_content=chunk)
+    logging.debug('%s', output)
+    return output
 
-        responses = list(
-            self._speech_client.streaming_recognize(self._streaming_config, [request]),
-        )
-        logging.debug('%s', responses)
 
-        output = '\n'
-        for response in responses:
-            results = list(response.results)
-            logging.debug("results: %d" % len(results))
-            for result in results:
-                if not result.is_final:
-                    continue
-                output += '{}\n'.format(result.alternatives[0].transcript)
+async def write_transcription(transcribed):
+    logging.debug('transcribed: %r', transcribed)
+    with open(OUTPUT_FILENAME, 'w') as f:
+        f.write(TPL.format(transcribed.replace('\n', '</p>')))
 
-        logging.info('%s', output)
-        with open('/tmp/translation/index.html', 'w') as f:
-            f.write(TPL.format(output.replace('\n', '</p>')))
+
+async def transcribe(queue):
+    buf = b''
+    step = 8 * 1024
+    threshold = step
+    while True:
+        data = await queue.get()
+        buf += data
+        if len(buf) >= threshold:
+            logging.debug('transcribing...')
+            transcribed = await fetch_transcription(buf)
+            threshold += step
+            await write_transcription(transcribed)
 
 
 async def create_external_media():
@@ -132,14 +127,20 @@ async def destroy_external_media():
 
 async def start(host, port):
     loop = asyncio.get_running_loop()
+    queue = asyncio.Queue()
 
     transport, protocol = await loop.create_datagram_endpoint(
-        lambda: ExternalMediaServer(),
+        lambda: ExternalMediaServer(queue),
         local_addr=(host, port),
     )
 
     logging.debug('launching task')
-    asyncio.create_task(create_external_media())
+    tasks = [
+        asyncio.create_task(create_external_media()),
+        asyncio.create_task(transcribe(queue)),
+    ]
+
+    asyncio.gather(*tasks)
 
     await asyncio.sleep(3600)
 
