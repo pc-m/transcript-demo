@@ -22,13 +22,13 @@ This demo is made of 3 processes
 ### Starting the stasis application
 
 ```sh
-call-transcript-stasis
+call-transcript-ari-stasis
 ```
 
 ### Starting the server
 
 ```sh
-call-transcript-server
+call-transcript-ari-server
 ```
 
 ```sh

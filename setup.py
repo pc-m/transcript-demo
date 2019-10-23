@@ -16,8 +16,8 @@ setup(
     zip_safe=False,
     entry_points={
         'console_scripts': [
-            'call-transcript-stasis = transcript_demo.stasis:main',
-            'call-transcript-server = transcript_demo.server:main',
+            'call-transcript-ari-stasis = transcript_demo.ari_stasis:main',
+            'call-transcript-ari-server = transcript_demo.ari_server:main',
         ],
     },
 )
