@@ -18,6 +18,7 @@ setup(
         'console_scripts': [
             'call-transcript-ari-stasis = transcript_demo.ari_stasis:main',
             'call-transcript-ari-server = transcript_demo.ari_server:main',
+            'call-transcript-wazo = transcript_demo.wazo:main',
         ],
     },
 )

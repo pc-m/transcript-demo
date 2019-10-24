@@ -11,7 +11,12 @@ a transcript of a call.
 4. create credentials for the Google Speech to Text API
 5. create a ARI user with username/password `demo/2b34c141-0ca9-44a7-95ca-570302f069c0`
 
-## Usage
+### res_ari_stream
+
+See the git repo README for installation instructions https://github.com/sboily/wazo-hackathon-asterisk-stream-module
+
+
+## Usage ARI demo
 
 This demo is made of 3 processes
 
@@ -43,3 +48,9 @@ Then visit the dispayed address in your browser
 1. When a call enters the stasis application it will be added to the bridge
 2. When the server starts listening on the configured port and create the external media channel
 3. When RTP is received the payload is sent to Google Speech to text API and an HTML file is generated
+
+
+## Usage Wazo module demo
+
+1. A calls B
+2. exucute `call-transcript-wazo <channel uniqueid>`
