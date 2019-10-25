@@ -1,7 +1,6 @@
 # Copyright 2019 The Wazo Authors  (see the AUTHORS file)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import tempfile
 import asyncio
 import aiohttp
 import logging
@@ -80,7 +79,7 @@ async def write_transcription(transcribed):
 
 async def transcribe(queue):
     buf = b''
-    step = 8 * 1024
+    step = 64 * 1024
     threshold = step
     while True:
         data = await queue.get()
