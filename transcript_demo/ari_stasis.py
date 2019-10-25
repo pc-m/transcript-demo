@@ -30,12 +30,6 @@ def application_bridge(client):
         yield bridge
     finally:
         try:
-            for channel in client.bridges.get(bridgeId=BRIDGE_ID).json['channels']:
-                try:
-                    client.channels.get(channelId=channel).hangup()
-                except ARINotFound:
-                    continue
-
             logging.debug('Destroying our bridge')
             client.bridges.destroy(bridgeId=BRIDGE_ID)
         except ARINotFound:
