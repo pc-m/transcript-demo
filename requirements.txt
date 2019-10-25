@@ -1,3 +1,2 @@
-aiohttp-requests
 google-cloud-speech
 
