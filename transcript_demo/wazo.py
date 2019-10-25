@@ -4,7 +4,6 @@
 import logging
 import websocket
 import sys
-import os
 
 from google.cloud import speech
 from google.cloud.speech import enums
@@ -13,9 +12,8 @@ from google.cloud.speech import types
 from queue import Queue
 from threading import Thread
 from functools import partial
+from .output import Output
 
-OUTPUT_DIRNAME = '/tmp/translation'
-OUTPUT_FILENAME = os.path.join(OUTPUT_DIRNAME, 'index.html')
 GOOGLE_SPEECH_CREDS_FILENAME = '/root/google_speech_creds.json'
 SPEECH_CLIENT = speech.SpeechClient.from_service_account_file(
     filename=GOOGLE_SPEECH_CREDS_FILENAME,
@@ -27,20 +25,12 @@ STREAMING_CONFIG = types.StreamingRecognitionConfig(
         language_code='en-US',
     ),
 )
-TPL = '''\
-<head>
-    <meta http-equiv="refresh" content="1">
-</head>
-<body>
-{}
-</body>
-'''
 
 logging.basicConfig(level=logging.DEBUG)
 
 DONE = object()
 
-received_buffer = b''
+output = None
 
 
 def on_message(queue, ws, message):
@@ -52,7 +42,7 @@ def on_error(ws, error):
 
 
 def on_close(ws):
-    logging.debug('writing %s', len(received_buffer))
+    logging.debug('closing')
 
 
 def transcribe(queue):
@@ -69,14 +59,9 @@ def transcribe(queue):
             if written >= transcribe_threshold:
                 transcribed = do_transcription(buffer)
                 transcribe_threshold = written + step
-                write_result(transcribed)
+                output.write(transcribed)
         finally:
             queue.task_done()
-
-
-def write_result(transcribed):
-    with open(OUTPUT_FILENAME, 'w') as f:
-        f.write(TPL.format(transcribed.replace('\n', '</p>')))
 
 
 def do_transcription(data):
@@ -99,14 +84,9 @@ def do_transcription(data):
 
 
 def main():
-    try:
-        os.mkdir(OUTPUT_DIRNAME)
-    except FileExistsError:
-        pass
+    global output
 
-    with open(OUTPUT_FILENAME, 'w') as f:
-        f.write(TPL.format('Waiting for the transcription to start...'))
-
+    output = Output()
     queue = Queue()
     transcriber_thread = Thread(target=transcribe, args=(queue,))
     transcriber_thread.start()

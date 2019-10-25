@@ -6,12 +6,12 @@ import aiohttp
 import logging
 import uuid
 import sys
-import os
 from google.cloud import speech
 from google.cloud.speech import enums
 from google.cloud.speech import types
 from aiohttp_requests import requests
 from . import ARI_URL, ARI_USERNAME, ARI_PASSWORD, APPLICATION
+from .output import Output
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -20,16 +20,6 @@ SERVER_PORT = 12222
 EXTERNAL_MEDIA_URL = '/'.join([ARI_URL, 'ari', 'channels', 'externalMedia'])
 CHANNEL_ID = str(uuid.uuid4())
 GOOGLE_SPEECH_CREDS_FILENAME = '/root/google_speech_creds.json'
-TPL = '''\
-<head>
-    <meta http-equiv="refresh" content="1">
-</head>
-<body>
-{}
-</body>
-'''
-OUTPUT_DIRNAME = '/tmp/translation'
-OUTPUT_FILENAME = os.path.join(OUTPUT_DIRNAME, 'index.html')
 SPEECH_CLIENT = speech.SpeechClient.from_service_account_file(
     filename=GOOGLE_SPEECH_CREDS_FILENAME,
 )
@@ -40,6 +30,8 @@ STREAMING_CONFIG = types.StreamingRecognitionConfig(
         language_code='en-US',
     ),
 )
+
+output = None
 
 
 class ExternalMediaServer:
@@ -71,12 +63,6 @@ async def fetch_transcription(buf):
     return output
 
 
-async def write_transcription(transcribed):
-    logging.debug('transcribed: %r', transcribed)
-    with open(OUTPUT_FILENAME, 'w') as f:
-        f.write(TPL.format(transcribed.replace('\n', '</p>')))
-
-
 async def transcribe(queue):
     buf = b''
     step = 64 * 1024
@@ -88,7 +74,7 @@ async def transcribe(queue):
             logging.debug('transcribing...')
             transcribed = await fetch_transcription(buf)
             threshold += step
-            await write_transcription(transcribed)
+            output.write(transcribed)
 
 
 async def create_external_media():
@@ -103,21 +89,6 @@ async def create_external_media():
             'app': APPLICATION,
             'external_host': '{}%3A{}'.format(SERVER_HOST, SERVER_PORT),
             'format': 'ulaw',
-        },
-    )
-    result = await response.text()
-    logging.debug('result: %s', result)
-
-
-async def destroy_external_media():
-    await asyncio.sleep(1)
-
-    logging.debug('Destroying %s', EXTERNAL_MEDIA_URL)
-    response = await requests.post(
-        EXTERNAL_MEDIA_URL + '/destroy',
-        auth=aiohttp.BasicAuth(ARI_USERNAME, ARI_PASSWORD),
-        params={
-            'channelId': CHANNEL_ID,
         },
     )
     result = await response.text()
@@ -145,13 +116,9 @@ async def start(host, port):
 
 
 def main():
-    logging.debug('Starting %s', sys.argv[0])
-    try:
-        os.mkdir(OUTPUT_DIRNAME)
-    except FileExistsError:
-        pass
+    global output
 
-    with open(OUTPUT_FILENAME, 'w') as f:
-        f.write(TPL.format('Waiting for the transcription to start...'))
+    logging.debug('Starting %s', sys.argv[0])
+    output = Output()
     asyncio.run(start(SERVER_HOST, SERVER_PORT))
     logging.debug('bye')
