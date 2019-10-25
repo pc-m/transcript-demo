@@ -26,6 +26,6 @@ class Output:
         self.write('Waiting for the transcription to start...')
 
     def write(self, content):
-        generated_html = _TPL.format(content)
+        generated_html = _TPL.format(content.replace('\n', '</p>'))
         with open(_OUTPUT_FILENAME, 'w') as f:
             f.write(generated_html)
