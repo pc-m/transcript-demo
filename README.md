@@ -1,7 +1,13 @@
 # Asterisk Live transcript demo
 
-This is a simple demo showing how to use the Asterisk ARI externalMedia resource and Google Speech API to get
-a transcript of a call.
+This repo contains two simple demos showing how to use the Asterisk ARI
+externalMedia resource and another one using res_ari_stream to get a live
+transcription of a call.
+
+The ARI demo creates an application that starts a bridge, the voice in that
+bridge will be translated.
+
+The res_ari_stream demo can listen to an arbitrary channel
 
 ## Installing
 
@@ -36,6 +42,8 @@ call-transcript-ari-stasis
 call-transcript-ari-server
 ```
 
+### Displaying the result
+
 ```sh
 cd /tmp/translation && python -m SimpleHTTPServer
 ```
@@ -52,5 +60,13 @@ Then visit the dispayed address in your browser
 
 ## Usage Wazo module demo
 
-1. A calls B
-2. exucute `call-transcript-wazo <channel uniqueid>`
+1. exucute `call-transcript-wazo <channel uniqueid>`
+2. An HTTP server to serve the generated transcript
+
+### Start the script with an active call
+
+replace PJSIP/twilio with the peer you wish to listen to
+
+```sh
+call-transcript-wazo $(asterisk -rx 'core show channels concise' | grep 'PJSIP/twilio' | awk -F'!' '{ print $NF}')
+```
