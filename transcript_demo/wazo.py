@@ -46,7 +46,7 @@ def on_close(ws):
 
 
 def transcribe(queue):
-    step = 32 * 1024
+    step = 64 * 1024
     transcribe_threshold = step
     buffer = b''
     while True:

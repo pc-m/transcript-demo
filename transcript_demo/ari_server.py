@@ -64,16 +64,17 @@ async def fetch_transcription(buf):
 
 
 async def transcribe(queue):
-    buf = b''
+    buffer = b''
     step = 64 * 1024
     threshold = step
     while True:
         data = await queue.get()
-        buf += data
-        if len(buf) >= threshold:
+        buffer += data
+        written = len(buffer)
+        if written >= threshold:
             logging.debug('transcribing...')
-            transcribed = await fetch_transcription(buf)
-            threshold += step
+            transcribed = await fetch_transcription(buffer)
+            threshold = written + step
             output.write(transcribed)
 
 
